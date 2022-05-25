@@ -3,42 +3,31 @@ package com.pnx
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
-import android.view.LayoutInflater
-import android.widget.Button
 import com.jakewharton.rxbinding4.view.clicks
-import com.jakewharton.rxbinding4.widget.textChanges
 import com.pnx.databinding.ActivityMainBinding
-import io.reactivex.Observable
-import io.reactivex.ObservableSource
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
-import io.reactivex.rxjava3.core.Scheduler
-import io.reactivex.rxjava3.functions.BiFunction
+import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.kotlin.subscribeBy
 import io.reactivex.rxjava3.kotlin.toObservable
-import io.reactivex.rxjava3.schedulers.Schedulers
-import io.reactivex.subjects.PublishSubject
 import java.util.concurrent.TimeUnit
-import io.reactivex.functions.Function
+import io.reactivex.rxjava3.disposables.CompositeDisposable
 
 class MainActivity : AppCompatActivity() {
 
     lateinit var binding: ActivityMainBinding
+
+    val bag = CompositeDisposable()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        val mapper1 = Function<String, Observable<String>> {
-            Observable.just("$it A", "$it B")
-        }
-
-
         binding.btn1.clicks()
             .subscribeOn(AndroidSchedulers.mainThread())
             .subscribe {
                 val list = arrayListOf("1","2","3","4","5","6","7","8")
-                list.toObservable()
+                var dis = list.toObservable()
                     .subscribeBy(
                     onNext = {
                         Log.d("RX","onNext : $it")
@@ -50,22 +39,26 @@ class MainActivity : AppCompatActivity() {
                         Log.d("RX","onError : $it")
                     }
                 )
+                bag.add(dis)
             }
-        val subject = PublishSubject.create<String>()
 
-        subject.onNext("")
-        subject.subscribe {
-            // 구독 이벤트
-        }
-
-        val mapper = Function<Int, Observable<String>> {
-            Observable.just("$it A", "$it B")
-        }
-
-        Observable.fromArray(1, 2, 3)
-            .flatMap(mapper)
+        var dis:Observable<Long>? = null
+        binding.btn2.clicks()
+            .subscribeOn(AndroidSchedulers.mainThread())
             .subscribe {
-                Log.d("RX","$it")
+                // share() 를 사용하면 구독자가 추가 되더라도 현재 시퀀스를 공유한다.
+                // 추가해주지 않을경우 새로 추가된 구독자에게는 처음부터 다시 방출된다.
+                dis = Observable.interval(1000,TimeUnit.MILLISECONDS).share()
+            }
+        var count = 1
+        binding.btn3.clicks()
+            .subscribeOn(AndroidSchedulers.mainThread())
+            .subscribe {
+                var subscribeCnt = count
+                dis?.subscribe {
+                    Log.d("RX","subscriber[$subscribeCnt] : $it")
+                }
+                count++
             }
     }
 }
